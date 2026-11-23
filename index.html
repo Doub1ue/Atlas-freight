@@ -643,7 +643,7 @@
               <h3>Load booked — you're on the board</h3>
               <div class="big-id" id="confirmId">ATL-0000</div>
               <p id="confirmRoute"></p>
-              <p>A dispatcher confirms your rate and pickup window within the hour. Keep your tracking number — it works in the tracker below right now.</p>
+              <p>A dispatcher confirms your rate and pickup window within the hour. Keep your tracking number — it works in the tracker below right now. This booking runs as a live test: it steps from Booked to Delivered over the next minute or so — keep the page open and watch it move.</p>
               <div class="row-btns">
                 <button class="btn btn-signal" type="button" id="confirmTrack">Track This Shipment</button>
                 <button class="btn btn-ghost" type="button" id="confirmBoard">View on the Board</button>
@@ -874,7 +874,7 @@
         whens: [fmtStamp(new Date()), "", "", "", "", ""]
       };
       loads.unshift(load);
-      freshId = load.id; lastBookedId = load.id;
+      freshId = load.id; lastBookedId = load.id; testRunIds.push(load.id);
       activeFilter = -1; renderFilters(); renderBoard();
       document.getElementById("confirmId").textContent = load.id;
       document.getElementById("confirmRoute").textContent = load.from + " → " + load.to + " · " + load.cargo + " · estimated delivery " + load.eta + ".";
@@ -891,6 +891,47 @@
     document.getElementById("confirmBoard").addEventListener("click", function () {
       document.getElementById("board").scrollIntoView({ behavior: "smooth" });
     });
+
+        /* ---------- test-run progression ----------
+       Loads booked in this session step forward on their own, one step
+       every 15 seconds \u2014 Booked, Picked Up, In Transit, Customs, Out for
+       Delivery, Delivered \u2014 so a booking can be watched end to end on the
+       board and in the tracker. Demo pace; the seeded loads hold their
+       fixed statuses, and nothing is stored between visits. */
+    var testRunIds = [];
+    function stepNote(load) {
+      switch (load.status) {
+        case 1: return "Picked up at " + load.from + " \u2014 freight loaded, secured and rolling.";
+        case 2: return "In transit \u2014 rolling toward " + load.to + ", check-ins posting as the miles pass.";
+        case 3: return "At the customs checkpoint \u2014 paperwork in order, clearance under way.";
+        case 4: return "Out for delivery \u2014 on the final leg into " + load.to + ".";
+        case 5: return "Delivered in " + load.to + " \u2014 signed for at the receiver. Proof of delivery on file.";
+      }
+      return load.note;
+    }
+    setInterval(function () {
+      var moved = false;
+      for (var i = 0; i < loads.length; i++) {
+        var load = loads[i];
+        if (testRunIds.indexOf(load.id) === -1 || load.status >= 5) continue;
+        load.status += 1;
+        load.whens[load.status] = fmtStamp(new Date());
+        load.note = stepNote(load);
+        if (load.status === 5) {
+          load.eta = "Delivered " + new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        }
+        moved = true;
+      }
+      if (!moved) return;
+      renderFilters();
+      renderBoard();
+      var result = document.getElementById("trackResult");
+      var trIdEl = document.getElementById("trId");
+      if (result && trIdEl && result.classList.contains("show")) {
+        var shownId = trIdEl.textContent.replace("TRACKING \u00b7 ", "");
+        if (findLoad(shownId)) runTrack(shownId);
+      }
+    }, 15000);
 
     /* ---------- tracker ---------- */
     function runTrack(id) {
