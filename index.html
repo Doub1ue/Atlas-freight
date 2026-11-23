@@ -635,6 +635,12 @@
                 <div class="field"><label for="q-cargo">Cargo description</label><input id="q-cargo" name="cargo" type="text" placeholder="e.g. Palletized auto parts" required /></div>
                 <div class="field"><label for="q-weight">Weight (lb)</label><input id="q-weight" name="weight" type="number" min="1" max="45000" placeholder="e.g. 18500" required /></div>
               </div>
+              <div class="field"><label for="q-intl">Delivery</label>
+                <select id="q-intl" name="intl">
+                  <option value="us">Within the US — no customs step</option>
+                  <option value="overseas">Overseas — includes the customs step</option>
+                </select>
+              </div>
               <div class="field"><label for="q-notes">Notes for dispatch (optional)</label><textarea id="q-notes" name="notes" placeholder="Dock hours, liftgate, appointment times…"></textarea></div>
               <button class="btn btn-signal" type="submit" style="width:100%">Book This Load →</button>
               <p class="form-note">Submitting creates your shipment on the dispatch board below and issues its tracking number — try it, then track it.</p>
@@ -643,7 +649,7 @@
               <h3>Load booked — you're on the board</h3>
               <div class="big-id" id="confirmId">ATL-0000</div>
               <p id="confirmRoute"></p>
-              <p>A dispatcher confirms your rate and pickup window within the hour. Keep your tracking number — it works in the tracker below right now. This booking runs on a real week's clock — Picked Up tomorrow, Delivered seven days from now. It lives on the Atlas board now — book on one device, check from any other with your tracking number, and watch it move.</p>
+              <p>A dispatcher confirms your rate and pickup window within the hour. Keep your tracking number — it works in the tracker below right now. This booking runs on a real clock — Picked Up tomorrow, then step by step to its delivery day. It lives on the Atlas board now — book on one device, check from any other with your tracking number, and watch it move.</p>
               <div class="row-btns">
                 <button class="btn btn-signal" type="button" id="confirmTrack">Track This Shipment</button>
                 <button class="btn btn-ghost" type="button" id="confirmBoard">View on the Board</button>
@@ -754,28 +760,28 @@
     var loads = [
       { id: "ATL-7K2Q9", from: "Chicago, IL", to: "Dallas, TX", cargo: "Auto parts · 18 pallets", weight: "24,500 lb", equip: "Dry Van 53′", status: 2, eta: "Tue, Nov 24",
         note: "Rolling south on I-35 — last check-in near Oklahoma City, running 20 minutes ahead of plan.",
-        whens: ["Nov 21 · 07:42", "Nov 21 · 13:15", "Nov 22 · 06:03", "", "", ""] },
-      { id: "ATL-2H6KF", from: "Laredo, TX", to: "Tampa, FL", cargo: "Consumer electronics · 9 pallets", weight: "11,200 lb", equip: "Dry Van 53′", status: 3, eta: "Wed, Nov 25",
-        note: "Cross-border load holding at the Laredo customs checkpoint — paperwork filed, clearance expected within a few hours.",
-        whens: ["Nov 20 · 09:10", "Nov 20 · 16:48", "Nov 21 · 08:22", "Nov 22 · 10:05", "", ""] },
-      { id: "ATL-3M8XD", from: "Los Angeles, CA", to: "Phoenix, AZ", cargo: "Beverage cases · full load", weight: "41,800 lb", equip: "Reefer 53′", status: 4, eta: "Today, Nov 22",
+        whens: ["Nov 21 · 07:42", "Nov 21 · 13:15", "Nov 22 · 06:03", "", ""] },
+      { id: "ATL-2H6KF", from: "Laredo, TX", to: "Tampa, FL", cargo: "Consumer electronics · 9 pallets", weight: "11,200 lb", equip: "Dry Van 53′", status: 2, eta: "Wed, Nov 25",
+        note: "Rolling east on I-10 toward Tampa — the electronics are palletized, wrapped and temperature-checked.",
+        whens: ["Nov 20 · 09:10", "Nov 20 · 16:48", "Nov 21 · 08:22", "", ""] },
+      { id: "ATL-3M8XD", from: "Los Angeles, CA", to: "Phoenix, AZ", cargo: "Beverage cases · full load", weight: "41,800 lb", equip: "Reefer 53′", status: 3, eta: "Today, Nov 22",
         note: "Out for delivery — driver is on the final leg into Phoenix, 14 miles from the receiver.",
-        whens: ["Nov 21 · 05:30", "Nov 21 · 09:12", "Nov 21 · 15:40", "—", "Nov 22 · 11:48", ""] },
+        whens: ["Nov 21 · 05:30", "Nov 21 · 09:12", "Nov 21 · 15:40", "Nov 22 · 11:48", ""] },
       { id: "ATL-5B7WN", from: "Seattle, WA", to: "Portland, OR", cargo: "Lumber bundles · 22 units", weight: "38,900 lb", equip: "Flatbed 48′", status: 1, eta: "Mon, Nov 23",
         note: "Picked up and tarped at the Seattle yard — departs on the evening linehaul to Portland.",
-        whens: ["Nov 22 · 08:05", "Nov 22 · 12:20", "", "", "", ""] },
-      { id: "ATL-9P4RT", from: "Atlanta, GA", to: "Miami, FL", cargo: "Retail apparel · 26 pallets", weight: "19,600 lb", equip: "Dry Van 53′", status: 5, eta: "Delivered Nov 21",
+        whens: ["Nov 22 · 08:05", "Nov 22 · 12:20", "", "", ""] },
+      { id: "ATL-9P4RT", from: "Atlanta, GA", to: "Miami, FL", cargo: "Retail apparel · 26 pallets", weight: "19,600 lb", equip: "Dry Van 53′", status: 4, eta: "Delivered Nov 21",
         note: "Delivered and signed for by M. Okafor at the Miami DC — proof of delivery on file.",
-        whens: ["Nov 19 · 10:02", "Nov 19 · 15:37", "Nov 20 · 07:51", "—", "Nov 21 · 08:14", "Nov 21 · 09:03"] },
+        whens: ["Nov 19 · 10:02", "Nov 19 · 15:37", "Nov 20 · 07:51", "Nov 21 · 08:14", "Nov 21 · 09:03"] },
       { id: "ATL-8D3ZQ", from: "Denver, CO", to: "Kansas City, MO", cargo: "Brewing equipment · crated", weight: "27,300 lb", equip: "Step Deck", status: 0, eta: "Thu, Nov 26",
         note: "Booked — dispatch is assigning a step-deck carrier for the Nov 24 pickup window.",
-        whens: ["Nov 22 · 09:31", "", "", "", "", ""] },
+        whens: ["Nov 22 · 09:31", "", "", "", ""] },
       { id: "ATL-6T9MA", from: "New York, NY", to: "Boston, MA", cargo: "Printed books · 14 pallets", weight: "22,750 lb", equip: "Box Truck 26′", status: 2, eta: "Mon, Nov 23",
         note: "In transit on I-95 — last ping near New Haven, on schedule for the Monday morning appointment.",
-        whens: ["Nov 22 · 06:18", "Nov 22 · 08:02", "Nov 22 · 10:45", "", "", ""] },
-      { id: "ATL-4X5JE", from: "Memphis, TN", to: "Nashville, TN", cargo: "Musical instruments · 6 crates", weight: "4,850 lb", equip: "Dry Van 53′", status: 5, eta: "Delivered Nov 20",
+        whens: ["Nov 22 · 06:18", "Nov 22 · 08:02", "Nov 22 · 10:45", "", ""] },
+      { id: "ATL-4X5JE", from: "Memphis, TN", to: "Nashville, TN", cargo: "Musical instruments · 6 crates", weight: "4,850 lb", equip: "Dry Van 53′", status: 4, eta: "Delivered Nov 20",
         note: "Delivered ahead of schedule — signed by the venue receiving manager, no exceptions noted.",
-        whens: ["Nov 19 · 07:20", "Nov 19 · 09:44", "Nov 19 · 12:30", "—", "Nov 20 · 07:58", "Nov 20 · 08:21"] }
+        whens: ["Nov 19 · 07:20", "Nov 19 · 09:44", "Nov 19 · 12:30", "Nov 20 · 07:58", "Nov 20 · 08:21"] }
     ];
 
     function esc(s) {
@@ -783,6 +789,8 @@
         return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
       });
     }
+    var DOM_STEPS = ["Booked", "Picked Up", "In Transit", "Out for Delivery", "Delivered"];
+    loads.forEach(function (l) { l.steps = DOM_STEPS; l.statusLabel = DOM_STEPS[l.status]; });
     function findLoad(id) {
       var q = String(id || "").trim().toUpperCase();
       for (var i = 0; i < loads.length; i++) if (loads[i].id === q) return loads[i];
@@ -792,7 +800,7 @@
     /* ---------- ticker ---------- */
     (function buildTicker() {
       var items = loads.map(function (l) {
-        return '<span class="tick-item"><span>' + esc(l.id) + '</span><span>' + esc(l.from.toUpperCase()) + ' → ' + esc(l.to.toUpperCase()) + '</span><span class="st">' + esc(STEPS[l.status].toUpperCase()) + '</span><span class="sep">◆</span></span>';
+        return '<span class="tick-item"><span>' + esc(l.from.toUpperCase()) + ' → ' + esc(l.to.toUpperCase()) + '</span><span class="st">' + esc((l.statusLabel || STEPS[l.status]).toUpperCase()) + '</span><span class="sep">◆</span></span>';
       }).join("");
       document.getElementById("tickerTrack").innerHTML = items + items;
     })();
@@ -822,13 +830,13 @@
     var serverLoads = [];
     function renderBoard() {
       var all = serverLoads.concat(loads);
-      var shown = all.filter(function (l) { return activeFilter === -1 || l.status === activeFilter; });
+      var shown = all.filter(function (l) { return activeFilter === -1 || (l.statusLabel || STEPS[l.status]) === STEPS[activeFilter]; });
       var html = shown.map(function (l) {
         return '<article class="load' + (l.id === freshId || l._fresh ? " fresh" : "") + '">' +
           '<div class="lid">' + esc(l.equip.toUpperCase()) + '</div>' +
           '<div><div class="route"><span class="city">' + esc(l.from) + '</span>' + routeSvg() + '<span class="city">' + esc(l.to) + '</span></div>' +
           '<div class="meta">' + esc(l.cargo) + ' · ' + esc(l.weight) + '</div></div>' +
-          '<div class="right"><span class="pill s' + l.status + '">' + esc(STEPS[l.status]) + '</span>' +
+          '<div class="right"><span class="pill s' + STEPS.indexOf(l.statusLabel || STEPS[l.status]) + '">' + esc(l.statusLabel || STEPS[l.status]) + '</span>' +
           '<span class="eta">ETA <b>' + esc(l.eta) + '</b></span></div></article>';
       }).join("");
       document.getElementById("boardList").innerHTML = html || '<p style="color:var(--muted)">No loads at this status right now — check back as the board moves.</p>';
@@ -873,7 +881,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           from: f.from.value.trim(), to: f.to.value.trim(),
-          cargo: f.cargo.value.trim(), weight: f.weight.value, equip: f.equip.value
+          cargo: f.cargo.value.trim(), weight: f.weight.value, equip: f.equip.value, intl: f.intl.value === "overseas"
         })
       }).then(function (r) {
         if (!r.ok) throw new Error("book failed");
@@ -977,10 +985,11 @@
       var result = document.getElementById("trackResult");
       var error = document.getElementById("trackError");
       error.classList.remove("show");
+      var steps = load.steps || STEPS;
       document.getElementById("trId").textContent = "TRACKING · " + load.id;
       document.getElementById("trFrom").textContent = load.from;
       document.getElementById("trTo").textContent = load.to;
-      document.getElementById("trStatus").textContent = STEPS[load.status];
+      document.getElementById("trStatus").textContent = steps[load.status];
       document.getElementById("trCargo").textContent = load.cargo + " · " + load.weight;
       document.getElementById("trEquip").textContent = load.equip;
       document.getElementById("trEta").textContent = load.eta;
@@ -989,9 +998,9 @@
       var tl = document.getElementById("trTimeline");
       var old = tl.querySelectorAll(".tstep");
       for (var i = old.length - 1; i >= 0; i--) old[i].remove();
-      STEPS.forEach(function (s, i) {
+      steps.forEach(function (s, i) {
         var cls = "tstep";
-        if (load.status === 5 || i < load.status) cls += " done";
+        if (load.status === steps.length - 1 || i < load.status) cls += " done";
         else if (i === load.status) cls += " now";
         var when = load.whens[i] || (i === load.status ? "In progress" : "Pending");
         var div = document.createElement("div");
@@ -1000,9 +1009,9 @@
           '<span class="tlab">' + esc(s) + '</span><span class="twhen">' + esc(when) + '</span>';
         tl.appendChild(div);
       });
-      var pct = (load.status / (STEPS.length - 1)) * 83.34;
+      var pct = (load.status / (steps.length - 1)) * 83.34;
       var fill = document.getElementById("trFill");
-      if (window.innerWidth <= 620) { fill.style.width = "3px"; fill.style.height = (load.status / (STEPS.length - 1)) * 92 + "%"; }
+      if (window.innerWidth <= 620) { fill.style.width = "3px"; fill.style.height = (load.status / (steps.length - 1)) * 92 + "%"; }
       else { fill.style.height = "3px"; fill.style.width = pct + "%"; }
       result.classList.add("show");
     }
