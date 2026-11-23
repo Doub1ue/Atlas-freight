@@ -643,7 +643,7 @@
               <h3>Load booked — you're on the board</h3>
               <div class="big-id" id="confirmId">ATL-0000</div>
               <p id="confirmRoute"></p>
-              <p>A dispatcher confirms your rate and pickup window within the hour. Keep your tracking number — it works in the tracker below right now. This booking runs on a real week's clock — Picked Up tomorrow, Delivered seven days from now. It is saved in this browser, so come back any time on this device and watch it move.</p>
+              <p>A dispatcher confirms your rate and pickup window within the hour. Keep your tracking number — it works in the tracker below right now. This booking runs on a real week's clock — Picked Up tomorrow, Delivered seven days from now. It lives on the Atlas board now — book on one device, check from any other with your tracking number, and watch it move.</p>
               <div class="row-btns">
                 <button class="btn btn-signal" type="button" id="confirmTrack">Track This Shipment</button>
                 <button class="btn btn-ghost" type="button" id="confirmBoard">View on the Board</button>
@@ -819,10 +819,12 @@
         });
       }
     }
+    var serverLoads = [];
     function renderBoard() {
-      var shown = loads.filter(function (l) { return activeFilter === -1 || l.status === activeFilter; });
+      var all = serverLoads.concat(loads);
+      var shown = all.filter(function (l) { return activeFilter === -1 || l.status === activeFilter; });
       var html = shown.map(function (l) {
-        return '<article class="load' + (l.id === freshId ? " fresh" : "") + '">' +
+        return '<article class="load' + (l.id === freshId || l._fresh ? " fresh" : "") + '">' +
           '<div class="lid">' + esc(l.equip.toUpperCase()) + '</div>' +
           '<div><div class="route"><span class="city">' + esc(l.from) + '</span>' + routeSvg() + '<span class="city">' + esc(l.to) + '</span></div>' +
           '<div class="meta">' + esc(l.cargo) + ' · ' + esc(l.weight) + '</div></div>' +
@@ -830,7 +832,7 @@
           '<span class="eta">ETA <b>' + esc(l.eta) + '</b></span></div></article>';
       }).join("");
       document.getElementById("boardList").innerHTML = html || '<p style="color:var(--muted)">No loads at this status right now — check back as the board moves.</p>';
-      document.getElementById("boardCount").textContent = "SHOWING " + shown.length + " OF " + loads.length + " LOADS · BOARD UPDATED JUST NOW";
+      document.getElementById("boardCount").textContent = "SHOWING " + shown.length + " OF " + all.length + " LOADS · BOARD UPDATED JUST NOW";
     }
     renderFilters(); renderBoard();
 
@@ -862,26 +864,42 @@
       e.preventDefault();
       var f = e.target;
       if (!f.checkValidity()) { f.reportValidity(); return; }
-      var pickup = new Date(dateInput.value + "T12:00:00");
-      var eta = new Date(pickup.getTime() + 4 * 86400000);
-      var w = parseInt(f.weight.value, 10);
-      var load = {
-        id: genId(),
-        from: f.from.value.trim(), to: f.to.value.trim(),
-        cargo: f.cargo.value.trim(), weight: (isNaN(w) ? f.weight.value : w.toLocaleString("en-US")) + " lb",
-        equip: f.equip.value, status: 0, eta: fmtDay(eta),
-        note: "Booked online — a dispatcher confirms your rate and pickup window within the hour. Watch this space: your load moves up the board from here.",
-        whens: [fmtStamp(new Date()), "", "", "", "", ""]
-      };
-      loads.unshift(load);
-      freshId = load.id; lastBookedId = load.id; load.bookedAt = Date.now(); load.eta = fmtDay(new Date(load.bookedAt + 7 * 86400000)); testRunIds.push(load.id); saveBookedLoads();
-      activeFilter = -1; renderFilters(); renderBoard();
-      document.getElementById("confirmId").textContent = load.id;
-      document.getElementById("confirmRoute").textContent = load.from + " → " + load.to + " · " + load.cargo + " · estimated delivery " + load.eta + ".";
+      var btn = f.querySelector('button[type="submit"]');
       var c = document.getElementById("quoteConfirm");
-      c.classList.add("show");
-      c.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      var head = c.querySelector("h3");
+      if (btn) { btn.disabled = true; btn.textContent = "Booking\u2026"; }
+      fetch(API_BASE + "/book", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          from: f.from.value.trim(), to: f.to.value.trim(),
+          cargo: f.cargo.value.trim(), weight: f.weight.value, equip: f.equip.value
+        })
+      }).then(function (r) {
+        if (!r.ok) throw new Error("book failed");
+        return r.json();
+      }).then(function (load) {
+        myLoads.unshift(load);
+        var copy = boardCopy(load); copy._fresh = true;
+        serverLoads.unshift(copy);
+        freshId = load.id; lastBookedId = load.id;
+        activeFilter = -1; renderFilters(); renderBoard();
+        head.textContent = "Load booked \u2014 you're on the board";
+        document.getElementById("confirmId").textContent = load.id;
+        document.getElementById("confirmRoute").textContent = load.from + " \u2192 " + load.to + " \u00b7 " + load.cargo + " \u00b7 estimated delivery " + load.eta + ".";
+        c.classList.add("show");
+        c.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }).catch(function () {
+        head.textContent = "That booking didn't go through";
+        document.getElementById("confirmId").textContent = "\u2014";
+        document.getElementById("confirmRoute").textContent = "The board could not be reached just now \u2014 please try again in a moment.";
+        c.classList.add("show");
+        c.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }).then(function () {
+        if (btn) { btn.disabled = false; btn.textContent = "Book This Load \u2192"; }
+      });
     });
+
     document.getElementById("confirmTrack").addEventListener("click", function () {
       if (!lastBookedId) return;
       document.getElementById("trackInput").value = lastBookedId;
@@ -892,94 +910,72 @@
       document.getElementById("board").scrollIntoView({ behavior: "smooth" });
     });
 
-        /* ---------- test-run progression ----------
-       Loads booked here run on a real week's clock: Picked Up after one
-       day, In Transit after two, Customs after four, Out for Delivery
-       after six, Delivered at seven days. Bookings are kept in this
-       browser's local storage, so a run survives closing the page and
-       can be monitored on this device until delivery. The seeded loads
-       hold their fixed statuses. */
-    var testRunIds = [];
-    var STEP_DAYS = [0, 1, 2, 4, 6, 7];
-    var STORE_KEY = "atlas-booked-loads-v1";
-    function stepNote(load) {
-      switch (load.status) {
-        case 1: return "Picked up at " + load.from + " \u2014 freight loaded, secured and rolling.";
-        case 2: return "In transit \u2014 rolling toward " + load.to + ", check-ins posting as the miles pass.";
-        case 3: return "At the customs checkpoint \u2014 paperwork in order, clearance under way.";
-        case 4: return "Out for delivery \u2014 on the final leg into " + load.to + ".";
-        case 5: return "Delivered in " + load.to + " \u2014 signed for at the receiver. Proof of delivery on file.";
-      }
-      return load.note;
+        /* ---------- atlas board server ----------
+       Bookings live on the Atlas server, not in this browser: a load
+       booked on any device joins the board everywhere, advances on the
+       same real week's clock (the server works out the stage from the
+       booking time), and can be tracked from anywhere with its number.
+       Board copies never carry tracking numbers \u2014 a number is only
+       shown to the person who booked the load, and to whoever types it
+       into the tracker. The seeded loads are the board's standing
+       scenery and keep their fixed statuses. */
+    var API_BASE = (location.hostname === "atlasfreight.de5.net" || location.hostname === "www.atlasfreight.de5.net") ? "/api" : "https://atlasfreight.de5.net/api";
+    var myLoads = [];
+    function boardCopy(l) {
+      var c = {};
+      for (var k in l) c[k] = l[k];
+      delete c.id; delete c.bookedAt;
+      return c;
     }
-    function saveBookedLoads() {
-      try {
-        var mine = loads.filter(function (l) { return testRunIds.indexOf(l.id) !== -1; });
-        localStorage.setItem(STORE_KEY, JSON.stringify(mine));
-      } catch (e) { /* storage unavailable \u2014 the run lasts for this visit only */ }
+    function myLoadById(id) {
+      id = String(id || "").trim().toUpperCase();
+      for (var i = 0; i < myLoads.length; i++) if (myLoads[i].id === id) return myLoads[i];
+      return null;
     }
-    function applyClock(load) {
-      if (!load.bookedAt) return false;
-      var elapsed = Date.now() - load.bookedAt;
-      var target = 0;
-      for (var s = 0; s < STEP_DAYS.length; s++) {
-        if (elapsed >= STEP_DAYS[s] * 86400000) target = s;
-      }
-      var changed = false;
-      while (load.status < target) {
-        load.status += 1;
-        load.whens[load.status] = fmtStamp(new Date(load.bookedAt + STEP_DAYS[load.status] * 86400000));
-        load.note = stepNote(load);
-        changed = true;
-      }
-      if (load.status === 5) {
-        load.eta = "Delivered " + new Date(load.bookedAt + 7 * 86400000).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      }
-      return changed;
+    function trackFromServer(id, quiet) {
+      var norm = String(id || "").trim().toUpperCase();
+      fetch(API_BASE + "/track/" + encodeURIComponent(norm)).then(function (r) {
+        if (!r.ok) throw new Error("not found");
+        return r.json();
+      }).then(function (load) {
+        var old = myLoadById(load.id);
+        if (old) myLoads[myLoads.indexOf(old)] = load; else myLoads.push(load);
+        showTrack(load);
+      }).catch(function () {
+        if (quiet) return;
+        var result = document.getElementById("trackResult");
+        var error = document.getElementById("trackError");
+        result.classList.remove("show");
+        error.textContent = "We can't find \u201c" + norm + "\u201d on the board. Check the number on your quote ticket and try again.";
+        error.classList.add("show");
+      });
     }
-    function refreshRun() {
-      var changed = false;
-      for (var i = 0; i < loads.length; i++) {
-        if (testRunIds.indexOf(loads[i].id) === -1) continue;
-        if (applyClock(loads[i])) changed = true;
-      }
-      if (!changed) return;
-      saveBookedLoads();
-      renderFilters();
-      renderBoard();
+    function syncBoard() {
+      fetch(API_BASE + "/loads").then(function (r) { return r.json(); }).then(function (data) {
+        serverLoads = (data.loads || []).map(boardCopy);
+        renderFilters(); renderBoard();
+      }).catch(function () { /* offline \u2014 the board keeps its standing scenery */ });
+    }
+    syncBoard();
+    setInterval(function () {
+      syncBoard();
       var result = document.getElementById("trackResult");
       var trIdEl = document.getElementById("trId");
       if (result && trIdEl && result.classList.contains("show")) {
         var shownId = trIdEl.textContent.replace("TRACKING \u00b7 ", "");
-        if (findLoad(shownId)) runTrack(shownId);
+        if (shownId && !findLoad(shownId)) trackFromServer(shownId, true);
       }
-    }
-    (function restoreBooked() {
-      try {
-        var saved = JSON.parse(localStorage.getItem(STORE_KEY) || "[]");
-        for (var i = saved.length - 1; i >= 0; i--) {
-          if (saved[i] && saved[i].id && !findLoad(saved[i].id)) {
-            loads.unshift(saved[i]);
-            testRunIds.push(saved[i].id);
-            applyClock(saved[i]);
-          }
-        }
-      } catch (e) { /* nothing to restore */ }
-    })();
-    refreshRun();
-    setInterval(refreshRun, 60000);
+    }, 60000);
 
     /* ---------- tracker ---------- */
     function runTrack(id) {
+      var load = findLoad(id) || myLoadById(id);
+      if (load) { showTrack(load); return; }
+      trackFromServer(id, false);
+    }
+    function showTrack(load) {
       var result = document.getElementById("trackResult");
       var error = document.getElementById("trackError");
-      var load = findLoad(id);
-      if (!load) {
-        result.classList.remove("show");
-        error.textContent = "We can't find “" + String(id || "").trim().toUpperCase() + "” on the board. Check the number on your quote ticket and try again.";
-        error.classList.add("show");
-        return;
-      }
       error.classList.remove("show");
       document.getElementById("trId").textContent = "TRACKING · " + load.id;
       document.getElementById("trFrom").textContent = load.from;
