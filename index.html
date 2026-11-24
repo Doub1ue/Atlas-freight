@@ -430,7 +430,18 @@
         .timeline .fill { transition: none; }
       }
     </style>
-  </head>
+  
+  <style>
+    /* ===== Parts Bin effects (ported from Snapblocks free components, 2026-11-24) ===== */
+    /* Velocity ticker: JS drives the track; the CSS loop is switched off when live. */
+    .ticker-track.vm-on { animation: none !important; will-change: transform; }
+    /* Magnetic buttons: flood layer + floating label on the Get a Quote links. */
+    a.btn-signal.mb-live { position: relative; overflow: hidden; isolation: isolate; transition: background .15s ease, box-shadow .15s ease; }
+    a.btn-signal.mb-live:hover { transform: none; }
+    a.btn-signal .mb-flood { position: absolute; inset: 0; z-index: -1; background: var(--dark); clip-path: circle(0% at 50% 50%); }
+    a.btn-signal .mb-label { position: relative; display: inline-flex; align-items: center; gap: .5rem; will-change: transform; }
+  </style>
+</head>
   <body>
 
   <header class="site">
@@ -1027,6 +1038,98 @@
         runTrack(id);
       });
     }
+  </script>
+
+  <script>
+  /* ===== Parts Bin effects — Velocity Marquee ticker + Magnetic Buttons (vanilla ports, 2026-11-24) ===== */
+  (function () {
+    "use strict";
+    var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var clamp = function (v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; };
+
+    /* ---- Velocity ticker: same items, physics from VelocityMarquee ---- */
+    var track = document.getElementById("tickerTrack");
+    if (track && !reduced) {
+      var halfW = track.scrollWidth / 2;
+      if (halfW > 0) {
+        track.classList.add("vm-on");
+        var speed = halfW / 23; /* matches the old 46s full-loop pace at rest */
+        var x = 0, last = performance.now(), lastY = window.scrollY, lastScroll = performance.now();
+        var velocity = 0, sign = -1, lean = 0, hover = 0, hovering = false, visible = true;
+        window.addEventListener("scroll", function (e) {
+          var t = e.target;
+          var y = (t === document || t === document.documentElement) ? window.scrollY : (t.scrollTop || window.scrollY);
+          var now = performance.now();
+          var dt = Math.max(8, now - lastScroll) / 1000;
+          velocity += ((y - lastY) / dt - velocity) * 0.35;
+          lastY = y; lastScroll = now;
+        }, { passive: true, capture: true });
+        var tickerEl = track.closest(".ticker");
+        if (tickerEl) {
+          tickerEl.addEventListener("pointerenter", function () { hovering = true; });
+          tickerEl.addEventListener("pointerleave", function () { hovering = false; });
+          new IntersectionObserver(function (en) { visible = en[0].isIntersecting; }).observe(tickerEl);
+        }
+        var frame = function (now) {
+          requestAnimationFrame(frame);
+          var dt = Math.min(0.05, (now - last) / 1000); last = now;
+          if (!visible) return;
+          if (Math.abs(velocity) > 30) sign = velocity > 0 ? -1 : 1;
+          hover += ((hovering ? 1 : 0) - hover) * 0.1;
+          var factor = 1 + 3 * clamp(Math.abs(velocity) / 1500, 0, 2);
+          x += sign * speed * factor * (1 - hover) * dt;
+          x = ((x % halfW) + halfW) % halfW;
+          lean += (clamp((velocity / 1500) * 8, -8, 8) - lean) * 0.12;
+          track.style.transform = "translate3d(" + (-x).toFixed(2) + "px,0,0) skewX(" + (-lean).toFixed(3) + "deg)";
+          velocity *= Math.pow(0.04, dt);
+        };
+        requestAnimationFrame(frame);
+      }
+    }
+
+    /* ---- Magnetic Buttons on the Get a Quote links ---- */
+    if (!reduced) document.querySelectorAll("a.btn.btn-signal").forEach(function (el) {
+      var flood = document.createElement("span");
+      flood.className = "mb-flood"; flood.setAttribute("aria-hidden", "true");
+      var label = document.createElement("span");
+      label.className = "mb-label";
+      while (el.firstChild) label.appendChild(el.firstChild);
+      el.appendChild(flood); el.appendChild(label);
+      el.classList.add("mb-live");
+      var strength = 0.35, radius = 110;
+      var raf = 0, tx = 0, ty = 0, bx = 0, by = 0, vx = 0, vy = 0;
+      var inside = false, f = 0, fv = 0, ox = 50, oy = 50;
+      var frameB = function () {
+        raf = 0;
+        vx = (vx + (tx - bx) * 0.16) * 0.72;
+        vy = (vy + (ty - by) * 0.16) * 0.72;
+        bx += vx; by += vy;
+        fv = (fv + ((inside ? 1 : 0) - f) * 0.14) * 0.7;
+        f += fv;
+        el.style.transform = "translate3d(" + bx.toFixed(2) + "px," + by.toFixed(2) + "px,0)";
+        label.style.transform = "translate3d(" + (bx * 0.45).toFixed(2) + "px," + (by * 0.45).toFixed(2) + "px,0)";
+        flood.style.clipPath = "circle(" + (Math.max(0, f) * 150).toFixed(2) + "% at " + ox.toFixed(1) + "% " + oy.toFixed(1) + "%)";
+        var settled = Math.abs(tx - bx) + Math.abs(ty - by) + Math.abs(vx) + Math.abs(vy) < 0.05 && Math.abs((inside ? 1 : 0) - f) < 0.002;
+        if (!settled) raf = requestAnimationFrame(frameB);
+      };
+      var start = function () { if (!raf) raf = requestAnimationFrame(frameB); };
+      window.addEventListener("pointermove", function (e) {
+        var r = el.getBoundingClientRect();
+        var dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+        var ex = Math.max(0, Math.abs(dx) - r.width / 2), ey = Math.max(0, Math.abs(dy) - r.height / 2);
+        var near = Math.hypot(ex, ey) < radius;
+        tx = near ? dx * strength : 0; ty = near ? dy * strength : 0;
+        var nowInside = ex === 0 && ey === 0;
+        if (nowInside !== inside) {
+          ox = ((e.clientX - r.left) / r.width) * 100;
+          oy = ((e.clientY - r.top) / r.height) * 100;
+          inside = nowInside;
+        }
+        start();
+      }, { passive: true });
+      document.addEventListener("pointerleave", function () { tx = ty = 0; inside = false; start(); });
+    });
+  })();
   </script>
 </body>
 </html>
